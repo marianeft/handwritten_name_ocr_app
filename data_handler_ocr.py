@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #data_handler_ocr.py
 
 import pandas as pd
@@ -132,7 +131,6 @@ def create_ocr_dataloaders(train_df: pd.DataFrame, test_df: pd.DataFrame,
                               num_workers=0, collate_fn=ocr_collate_fn)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False,
                              num_workers=0, collate_fn=ocr_collate_fn)
-=======
 #data_handler_ocr.py
 
 import pandas as pd
@@ -266,5 +264,4 @@ def create_ocr_dataloaders(train_df: pd.DataFrame, test_df: pd.DataFrame,
                               num_workers=0, collate_fn=ocr_collate_fn)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False,
                              num_workers=0, collate_fn=ocr_collate_fn)
->>>>>>> ee59e5b21399d8b323cff452a961ea2fd6c65308
     return train_loader, test_loader

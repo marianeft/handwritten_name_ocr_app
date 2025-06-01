@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # app.py
 
 import streamlit as st
@@ -210,7 +209,6 @@ if uploaded_file is not None:
 st.markdown("""
     ---
     *Built using Streamlit, PyTorch, OpenCV, and EditDistance ©2025 by MFT*
-=======
 # app.py
 
 import streamlit as st
@@ -422,5 +420,4 @@ if uploaded_file is not None:
 st.markdown("""
     ---
     *Built using Streamlit, PyTorch, OpenCV, and EditDistance ©2025 by MFT*
->>>>>>> ee59e5b21399d8b323cff452a961ea2fd6c65308
     """)

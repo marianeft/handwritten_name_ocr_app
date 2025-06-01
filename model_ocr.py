@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # model_ocr.py
 
 import torch
@@ -289,7 +288,6 @@ def load_ocr_model(model: nn.Module, path: str):
     """
     model.load_state_dict(torch.load(path, map_location=torch.device('cpu'))) # Always load to CPU first
     model.eval() # Set to evaluation mode
-=======
 # model_ocr.py
 
 import torch
@@ -580,5 +578,4 @@ def load_ocr_model(model: nn.Module, path: str):
     """
     model.load_state_dict(torch.load(path, map_location=torch.device('cpu'))) # Always load to CPU first
     model.eval() # Set to evaluation mode
->>>>>>> ee59e5b21399d8b323cff452a961ea2fd6c65308
     print(f"OCR model loaded from {path}")

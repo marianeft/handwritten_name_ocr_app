@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # config.py
 
 import os
@@ -53,7 +52,6 @@ IMG_HEIGHT = 32
 # --- Training Parameters ---
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
-=======
 # config.py
 
 import os
@@ -108,5 +106,4 @@ IMG_HEIGHT = 32
 # --- Training Parameters ---
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
->>>>>>> ee59e5b21399d8b323cff452a961ea2fd6c65308
 NUM_EPOCHS = 3

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #utils_ocr.py
 
 import cv2
@@ -89,7 +88,6 @@ def pad_image_tensor(image_tensor: torch.Tensor, max_width: int) -> torch.Tensor
     padding = max_width - W
     # Pad on the right (P_left, P_right, P_top, P_bottom)
     padded_tensor = f.pad(image_tensor, (0, padding), 'constant', 0)
-=======
 #utils_ocr.py
 
 import cv2
@@ -180,5 +178,4 @@ def pad_image_tensor(image_tensor: torch.Tensor, max_width: int) -> torch.Tensor
     padding = max_width - W
     # Pad on the right (P_left, P_right, P_top, P_bottom)
     padded_tensor = f.pad(image_tensor, (0, padding), 'constant', 0)
->>>>>>> ee59e5b21399d8b323cff452a961ea2fd6c65308
     return padded_tensor
