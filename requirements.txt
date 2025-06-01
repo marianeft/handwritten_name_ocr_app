@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #requirements.txt
 # This file lists all the Python libraries required to run the Handwritten Name OCR application.
 # Install using: pip install -r requirements.txt
@@ -12,4 +13,20 @@ torchvision>=0.17.2      # PyTorch companion library for vision tasks (datasets,
 matplotlib>=3.8.4        # For plotting training history
 tqdm>=4.66.2             # For displaying progress bars during training
 editdistance>=0.8.1      # For calculating character error rate (CER)
+=======
+#requirements.txt
+# This file lists all the Python libraries required to run the Handwritten Name OCR application.
+# Install using: pip install -r requirements.txt
+
+streamlit>=1.33.0
+pandas>=2.2.2
+numpy>=1.26.4
+Pillow>=10.3.0
+opencv-python-headless>=4.9.0.80
+torch>=2.2.2             
+torchvision>=0.17.2      # PyTorch companion library for vision tasks (datasets, transforms)
+matplotlib>=3.8.4        # For plotting training history
+tqdm>=4.66.2             # For displaying progress bars during training
+editdistance>=0.8.1      # For calculating character error rate (CER)
+>>>>>>> ee59e5b21399d8b323cff452a961ea2fd6c65308
 scikit-learn>=1.4.2
