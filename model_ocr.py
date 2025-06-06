@@ -1,23 +1,17 @@
 # model_ocr.py
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import DataLoader # Keep DataLoader for type hinting
+from torch.utils.data import DataLoader 
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
 import editdistance
-import copy # Import copy module to deepcopy model state
 
 # Import config and char_indexer
-# Ensure these imports align with your current config.py
 from config import IMG_HEIGHT, NUM_CLASSES, BLANK_TOKEN 
 from data_handler_ocr import CharIndexer 
-# You might also need to import binarize_image, resize_image_for_ocr, normalize_image_for_model
-# if they are used directly in model_ocr.py for internal preprocessing (e.g., in evaluate_model if not using DataLoader)
-# For now, assuming they are handled by DataLoader transforms.
-from utils_ocr import binarize_image, resize_image_for_ocr, normalize_image_for_model # Add this for completeness if needed elsewhere
+from utils_ocr import binarize_image, resize_image_for_ocr, normalize_image_for_model
 
 
 class CNN_Backbone(nn.Module):
@@ -44,7 +38,6 @@ class CNN_Backbone(nn.Module):
             nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
             nn.ReLU(True),
             # This MaxPool2d effectively brings height from 8 to 4, with a small width adjustment due to padding
-            # The original comment (W/4 + 1) is due to padding=1 and stride=1 on width, which is fine.
             nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 1), padding=(0, 1)), # H: 8 -> 4, W: (W/4) -> (W/4 + 1) (approx)
 
             # Fourth block
@@ -91,11 +84,11 @@ class CRNN(nn.Module):
     and a final linear layer for character prediction.
     """
     def __init__(self, num_classes: int, cnn_output_channels: int = 512,
-                 rnn_hidden_size: int = 256, rnn_num_layers: int = 2):
+                 rnn_hidden_size: int = 256, rnn_num_layers: int = 2): # Corrected parameter name
         super(CRNN, self).__init__()
         self.cnn = CNN_Backbone(output_channels=cnn_output_channels)
         # Input to LSTM is the number of channels from the CNN output
-        self.rnn = BidirectionalLSTM(cnn_output_channels, rnn_hidden_size, rnn_num_layers)
+        self.rnn = BidirectionalLSTM(cnn_output_channels, rnn_hidden_size, rnn_num_layers) # Corrected usage
         # Output of bidirectional LSTM is hidden_size * 2
         self.fc = nn.Linear(rnn_hidden_size * 2, num_classes) # Final linear layer for classes
 
@@ -126,60 +119,60 @@ def ctc_greedy_decode(output: torch.Tensor, char_indexer: CharIndexer) -> list[s
     log_probs = F.log_softmax(output, dim=2)
     
     # Permute to (batch_size, sequence_length, num_classes) for argmax along class dim
-    # This gives us the index of the most probable character at each time step for each sample in the batch.
     predicted_indices = torch.argmax(log_probs.permute(1, 0, 2), dim=2).cpu().numpy()
 
     decoded_texts = []
     for seq in predicted_indices:
         # Use char_indexer's decode method, which handles blank removal and duplicate collapse
-        decoded_texts.append(char_indexer.decode(seq.tolist())) # Convert numpy array to list
+        decoded_texts.append(char_indexer.decode(seq.tolist()))
     return decoded_texts
 
 # --- Evaluation Function ---
 def evaluate_model(model: nn.Module, dataloader: DataLoader, char_indexer: CharIndexer, device: str):
-    model.eval() # Set model to evaluation mode
-    # CTCLoss needs the blank token index, which is available from char_indexer
+    model.eval()
     criterion = nn.CTCLoss(blank=char_indexer.blank_token_idx, zero_infinity=True) 
     total_loss = 0
     all_predictions = []
     all_ground_truths = []
 
-    with torch.no_grad(): # Disable gradient calculation for evaluation
+    with torch.no_grad():
         for inputs, targets_padded, _, target_lengths in tqdm(dataloader, desc="Evaluating"):
             inputs = inputs.to(device)
             targets_padded = targets_padded.to(device)
-            target_lengths = target_lengths.to(device)
+            target_lengths_tensor = target_lengths.to(device)
 
-            output = model(inputs) # (seq_len, batch_size, num_classes)
+            output = model(inputs)
 
-            # Calculate input_lengths for CTCLoss. This is the sequence length produced by the CNN/RNN.
-            # It's the `output.shape[0]` (sequence_length) for each item in the batch.
             outputs_seq_len_for_ctc = torch.full(
-                size=(output.shape[1],), # batch_size
-                fill_value=output.shape[0], # actual sequence length (T) from model output
+                size=(output.shape[1],),
+                fill_value=output.shape[0],
                 dtype=torch.long,
                 device=device 
             )
             
             # CTC Loss calculation requires log_softmax on the output logits
-            log_probs_for_loss = F.log_softmax(output, dim=2) # (T, N, C)
+            log_probs_for_loss = F.log_softmax(output, dim=2)
 
-            loss = criterion(log_probs_for_loss, targets_padded, outputs_seq_len_for_ctc, target_lengths)
-            total_loss += loss.item() * inputs.size(0) # Multiply by batch size for correct average
+            # CTCLoss expects targets_padded as a 1D tensor and target_lengths_tensor as corresponding lengths
+            loss = criterion(log_probs_for_loss, targets_padded, outputs_seq_len_for_ctc, target_lengths_tensor)
+            total_loss += loss.item() * inputs.size(0)
 
-            # Decode predictions for metrics
             decoded_preds = ctc_greedy_decode(output, char_indexer)
-            
-            # Reconstruct ground truths from encoded tensors
-            ground_truths = []
-            # Loop through each sample in the batch
-            for i in range(targets_padded.size(0)):
-                # Extract the actual target sequence for the i-th sample using its length
-                # Convert to list before passing to char_indexer.decode
-                ground_truths.append(char_indexer.decode(targets_padded[i, :target_lengths[i]].tolist()))
-
             all_predictions.extend(decoded_preds)
-            all_ground_truths.extend(ground_truths)
+            
+            ground_truths_batch = []
+            current_idx_in_concatenated_targets = 0 
+            
+            target_lengths_list = target_lengths.cpu().tolist() 
+
+            for i in range(inputs.size(0)): 
+                length = target_lengths_list[i]
+                
+                current_target_segment = targets_padded[current_idx_in_concatenated_targets : current_idx_in_concatenated_targets + length].tolist()
+                ground_truths_batch.append(char_indexer.decode(current_target_segment))
+                current_idx_in_concatenated_targets += length
+
+            all_ground_truths.extend(ground_truths_batch)
 
     avg_loss = total_loss / len(dataloader.dataset)
 
@@ -199,28 +192,15 @@ def evaluate_model(model: nn.Module, dataloader: DataLoader, char_indexer: CharI
 # --- Training Function ---
 def train_ocr_model(model: nn.Module, train_loader: DataLoader,
                     test_loader: DataLoader, char_indexer: CharIndexer,
-                    epochs: int, device: str, progress_callback=None,
-                    early_stopping_patience: int = None, early_stopping_min_delta: float = 0.001) -> tuple[nn.Module, dict]:
+                    epochs: int, device: str, progress_callback=None) -> tuple[nn.Module, dict]:
     """
-    Trains the OCR model using CTC loss with optional early stopping.
-    
-    Args:
-        model (nn.Module): The CRNN model to train.
-        train_loader (DataLoader): DataLoader for the training dataset.
-        test_loader (DataLoader): DataLoader for the testing/validation dataset.
-        char_indexer (CharIndexer): Instance of CharIndexer for decoding.
-        epochs (int): Total number of epochs to train for.
-        device (str): Device to train on ('cuda' or 'cpu').
-        progress_callback (callable, optional): Callback for Streamlit progress updates.
-        early_stopping_patience (int, optional): Number of epochs to wait for improvement
-                                                 before stopping. If None, early stopping is disabled.
-        early_stopping_min_delta (float): Minimum change in test loss to qualify as an improvement.
+    Trains the OCR model using CTC loss.
     """
     # CTCLoss needs the blank token index
     criterion = nn.CTCLoss(blank=char_indexer.blank_token_idx, zero_infinity=True) 
     optimizer = optim.Adam(model.parameters(), lr=0.001) # Using a fixed LR for now
     # Using ReduceLROnPlateau to adjust LR based on test loss (monitor 'min' loss)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5, verbose=True) # Added verbose=True for scheduler output
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5) # Removed verbose=True
 
     model.to(device) # Ensure model is on the correct device
     model.train() # Set model to training mode
@@ -231,16 +211,6 @@ def train_ocr_model(model: nn.Module, train_loader: DataLoader,
         'test_cer': [],
         'test_exact_match_accuracy': []
     }
-
-    # Early Stopping variables
-    best_loss = float('inf')
-    patience_counter = 0
-    best_model_state = None
-    
-    # Store initial model state in case early stopping triggers before any improvement
-    # This ensures we always have a model state to load, even if the first epoch's test loss is the best.
-    best_model_state = copy.deepcopy(model.state_dict())
-
 
     for epoch in range(epochs):
         running_loss = 0.0
@@ -285,7 +255,7 @@ def train_ocr_model(model: nn.Module, train_loader: DataLoader,
         training_history['test_cer'].append(test_cer)
         training_history['test_exact_match_accuracy'].append(test_exact_match_accuracy)
 
-        # Adjust learning rate based on test loss (this is where scheduler.step() is called)
+        # Adjust learning rate based on test loss
         scheduler.step(test_loss)
 
         print(f"Epoch {epoch+1}/{epochs}: Train Loss={epoch_train_loss:.4f}, "
@@ -293,32 +263,10 @@ def train_ocr_model(model: nn.Module, train_loader: DataLoader,
 
         if progress_callback:
             # Update progress bar with current epoch and key metrics
-            # Ensure the progress_callback expects a float between 0 and 1
             progress_val = (epoch + 1) / epochs
             progress_callback(progress_val, text=f"Epoch {epoch+1}/{epochs} done. Test CER: {test_cer:.4f}, Test Exact Match Acc: {test_exact_match_accuracy:.4f}")
 
-        # Early Stopping Logic
-        if early_stopping_patience is not None:
-            # Check if test_loss has improved significantly
-            if test_loss < best_loss - early_stopping_min_delta:
-                best_loss = test_loss
-                patience_counter = 0 # Reset patience since improvement occurred
-                best_model_state = copy.deepcopy(model.state_dict()) # Save the current best model state
-                print(f"Validation loss improved. Saving model state. Best loss: {best_loss:.4f}")
-            else:
-                patience_counter += 1
-                print(f"Validation loss did not improve. Patience: {patience_counter}/{early_stopping_patience}")
-                if patience_counter >= early_stopping_patience:
-                    print(f"Early stopping triggered after {epoch+1} epochs (no improvement for {early_stopping_patience} epochs).")
-                    break # Exit the training loop
-
         model.train() # Set model back to training mode after evaluation
-
-    # Load the best model state if early stopping was enabled and a best state was saved
-    # This ensures the returned model is the one with the best validation performance
-    if early_stopping_patience is not None and best_model_state is not None:
-        model.load_state_dict(best_model_state)
-        print("Restored best model state based on validation loss.")
 
     return model, training_history
 

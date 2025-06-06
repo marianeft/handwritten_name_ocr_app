@@ -8,7 +8,7 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
 
 TRAIN_IMAGES_DIR = os.path.join(DATA_DIR, 'images', 'train')
-TEST_IMAGES_DIR = os.path.join(DATA_DIR, 'images', 'test')
+TEST_IMAGES_DIR = os.path.join(DATA_DIR, 'images', 'test') # Ensure this is 'test' lowercase if that's your folder name
 
 TRAIN_CSV_PATH = os.path.join(DATA_DIR, 'train.csv')
 TEST_CSV_PATH = os.path.join(DATA_DIR, 'test.csv')
@@ -16,26 +16,13 @@ TEST_CSV_PATH = os.path.join(DATA_DIR, 'test.csv')
 MODEL_SAVE_PATH = os.path.join(MODELS_DIR, 'handwritten_name_ocr_model.pth')
 
 # --- Character Set and OCR Configuration ---
-# This character set MUST cover all characters present in your dataset.
-# Add any special characters if needed.
-# The order here is crucial as it defines the indices for your characters.
 CHARS = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
-
-# Define the character for the blank token. It MUST NOT be in CHARS.
-BLANK_TOKEN_SYMBOL = 'Þ'
-
-# Construct the full vocabulary string. It's conventional to put the blank token last.
-# This VOCABULARY string is what you pass to CharIndexer.
+BLANK_TOKEN_SYMBOL = 'Þ' 
 VOCABULARY = CHARS + BLANK_TOKEN_SYMBOL
-
-# NUM_CLASSES is the total number of unique symbols in the vocabulary, including the blank.
 NUM_CLASSES = len(VOCABULARY)
-
-# BLANK_TOKEN is the actual index of the blank symbol within the VOCABULARY.
-# Since we appended it last, its index will be len(CHARS).
 BLANK_TOKEN = VOCABULARY.find(BLANK_TOKEN_SYMBOL)
 
-# --- Sanity Checks (Highly Recommended) ---
+# --- Sanity Checks ---
 if BLANK_TOKEN == -1:
     raise ValueError(f"Error: BLANK_TOKEN_SYMBOL '{BLANK_TOKEN_SYMBOL}' not found in VOCABULARY. Check config.py definitions.")
 if BLANK_TOKEN >= NUM_CLASSES:
@@ -47,9 +34,15 @@ print(f"Blank Symbol: '{BLANK_TOKEN_SYMBOL}' at index {BLANK_TOKEN}")
 
 
 # --- Image Preprocessing Parameters ---
-IMG_HEIGHT = 32
+IMG_HEIGHT = 32 # Target height for all input images to the model
+MAX_IMG_WIDTH = 1024 # Adjust this value based on your typical image widths and available RAM
 
 # --- Training Parameters ---
-BATCH_SIZE = 1000
-LEARNING_RATE = 0.001
+BATCH_SIZE = 10
+
+# NEW: Dataset Limits
+TRAIN_SAMPLES_LIMIT = 1000 
+TEST_SAMPLES_LIMIT = 1000 
+
 NUM_EPOCHS = 5
+LEARNING_RATE = 0.001

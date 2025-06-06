@@ -1,4 +1,5 @@
 #data_handler_ocr.py
+
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -9,7 +10,11 @@ import numpy as np
 import torch.nn.functional as F
 
 # Import utility functions and config
-from config import VOCABULARY, BLANK_TOKEN, BLANK_TOKEN_SYMBOL, IMG_HEIGHT, TRAIN_IMAGES_DIR, TEST_IMAGES_DIR
+from config import (
+    VOCABULARY, BLANK_TOKEN, BLANK_TOKEN_SYMBOL, IMG_HEIGHT,
+    TRAIN_IMAGES_DIR, TEST_IMAGES_DIR,
+    TRAIN_SAMPLES_LIMIT, TEST_SAMPLES_LIMIT 
+)
 from utils_ocr import load_image_as_grayscale, binarize_image, resize_image_for_ocr, normalize_image_for_model
 
 class CharIndexer:
@@ -47,9 +52,11 @@ class CharIndexer:
         decoded_text = []
         for i, idx in enumerate(indices):
             if idx == self.blank_token_idx:
-                continue
+                continue # Skip blank tokens
+            
             if i > 0 and indices[i-1] == idx:
                 continue
+            
             if idx in self.idx_to_char:
                 decoded_text.append(self.idx_to_char[idx])
             else:
@@ -69,10 +76,10 @@ class OCRDataset(Dataset):
         
         if transform is None:
             self.transform = transforms.Compose([
-                transforms.Lambda(lambda img: binarize_image(img, threshold=128)),
-                transforms.Lambda(lambda img: resize_image_for_ocr(img, IMG_HEIGHT)),
-                transforms.ToTensor(),
-                transforms.Lambda(normalize_image_for_model)
+                transforms.Lambda(lambda img: binarize_image(img)), 
+                transforms.Lambda(lambda img: resize_image_for_ocr(img, IMG_HEIGHT)), # Resize image to fixed height
+                transforms.ToTensor(), # Convert PIL Image to PyTorch Tensor (H, W) -> (1, H, W), scales to [0,1]
+                transforms.Lambda(normalize_image_for_model) # Normalize pixel values to [-1, 1]
             ])
         else:
             self.transform = transform
@@ -85,21 +92,20 @@ class OCRDataset(Dataset):
         raw_filename_entry = self.data.loc[idx, 'FILENAME'] 
         ground_truth_text = self.data.loc[idx, 'IDENTITY']
 
-        filename_only = raw_filename_entry.split(',')[0].strip()
-
-        img_path = os.path.join(self.image_dir, filename_only)
+        filename = raw_filename_entry.split(',')[0].strip()
+        img_path = os.path.join(self.image_dir, filename)
         ground_truth_text = str(ground_truth_text)
 
         try:
-            image = load_image_as_grayscale(img_path)
+            image = load_image_as_grayscale(img_path) # Returns PIL Image 'L'
         except FileNotFoundError:
-            print(f"Error: Image file not found at {img_path}. Please check your dataset and config.py paths.")
+            print(f"Error: Image file not found at {img_path}. Skipping this item.")
             raise
 
         if self.transform:
             image = self.transform(image)
         
-        image_width = image.shape[2] 
+        image_width = image.shape[2] # Assuming image is (C, H, W) after transform
 
         text_encoded = torch.tensor(self.char_indexer.encode(ground_truth_text), dtype=torch.long)
         text_length = len(text_encoded)
@@ -118,7 +124,7 @@ def ocr_collate_fn(batch: list) -> tuple[torch.Tensor, torch.Tensor, torch.Tenso
     images_batch = torch.stack(padded_images, 0)
 
     texts_batch = torch.cat(texts, 0)
-    text_lengths_tensor = torch.tensor(text_lengths, dtype=torch.long)
+    text_lengths_tensor = torch.tensor(list(text_lengths), dtype=torch.long)
     image_widths_tensor = torch.tensor(image_widths, dtype=torch.long)
 
     return images_batch, texts_batch, image_widths_tensor, text_lengths_tensor
@@ -127,37 +133,30 @@ def ocr_collate_fn(batch: list) -> tuple[torch.Tensor, torch.Tensor, torch.Tenso
 def load_ocr_dataframes(train_csv_path: str, test_csv_path: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Loads training and testing dataframes.
-    Assumes CSVs have 'FILENAME' and 'IDENTITY' columns and are comma-delimited with no header.
+    Assumes CSVs have 'FILENAME' and 'IDENTITY' columns.
+    Applies dataset limits from config.py.
     """
-    train_df = pd.read_csv(train_csv_path, delimiter=',', names=['FILENAME', 'IDENTITY'], header=None, encoding='utf-8')
-    test_df = pd.read_csv(test_csv_path, delimiter=',', names=['FILENAME', 'IDENTITY'], header=None, encoding='utf-8')
+    train_df = pd.read_csv(train_csv_path, encoding='ISO-8859-1')
+    test_df = pd.read_csv(test_csv_path, encoding='ISO-8859-1')
+
+    # Apply limits if they are set (not 0)
+    if TRAIN_SAMPLES_LIMIT > 0:
+        train_df = train_df.head(TRAIN_SAMPLES_LIMIT)
+        print(f"Limited training data to {TRAIN_SAMPLES_LIMIT} samples.")
+    if TEST_SAMPLES_LIMIT > 0:
+        test_df = test_df.head(TEST_SAMPLES_LIMIT)
+        print(f"Limited test data to {TEST_SAMPLES_LIMIT} samples.")
+
     return train_df, test_df
 
 def create_ocr_dataloaders(train_df: pd.DataFrame, test_df: pd.DataFrame,
-                           char_indexer: CharIndexer, batch_size: int,
-                           train_limit: int = None, test_limit: int = None) -> tuple[DataLoader, DataLoader]:
+                           char_indexer: CharIndexer, batch_size: int) -> tuple[DataLoader, DataLoader]:
     """
     Creates PyTorch DataLoader objects for OCR training and testing datasets,
     using specific image directories for train/test.
-    
-    Args:
-        train_df (pd.DataFrame): DataFrame for training data.
-        test_df (pd.DataFrame): DataFrame for testing data.
-        char_indexer (CharIndexer): Instance of CharIndexer.
-        batch_size (int): Batch size for DataLoaders.
-        train_limit (int, optional): Maximum number of samples to use for training. If None, use all.
-        test_limit (int, optional): Maximum number of samples to use for testing. If None, use all.
     """
-    # Apply limits if specified
-    if train_limit is not None:
-        train_df = train_df.head(train_limit)
-        print(f"Using a limited training dataset of {len(train_df)} samples.")
-    if test_limit is not None:
-        test_df = test_df.head(test_limit)
-        print(f"Using a limited testing dataset of {len(test_df)} samples.")
-
-    train_dataset = OCRDataset(dataframe=train_df, char_indexer=char_indexer, image_dir=TRAIN_IMAGES_DIR)
-    test_dataset = OCRDataset(dataframe=test_df, char_indexer=char_indexer, image_dir=TEST_IMAGES_DIR)
+    train_dataset = OCRDataset(train_df, char_indexer, TRAIN_IMAGES_DIR)
+    test_dataset = OCRDataset(test_df, char_indexer, TEST_IMAGES_DIR)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                               num_workers=0, collate_fn=ocr_collate_fn)
