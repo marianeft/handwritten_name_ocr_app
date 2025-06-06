@@ -42,7 +42,7 @@ st.markdown("""
     This application uses a Convolutional Recurrent Neural Network (CRNN) to perform
     Optical Character Recognition (OCR) on handwritten names. You can upload an image
     of a handwritten name for prediction or train a new model using the provided dataset.
-     
+
     **Note:** Training a robust OCR model can be time-consuming.
 """)
 
@@ -96,7 +96,7 @@ def update_progress_callback_sidebar(value, text):
 if st.sidebar.button("📊 Start Training"):
     progress_bar_sidebar.progress(0)
     progress_label_sidebar.empty()
-    st.empty() # Clear any previous status messages in the main section
+    st.empty()
 
     if not os.path.exists(TRAIN_CSV_PATH) or not os.path.isdir(TRAIN_IMAGES_DIR):
         st.sidebar.error(f"Training CSV '{TRAIN_CSV_PATH}' or Images directory '{TRAIN_IMAGES_DIR}' not found!")
@@ -115,7 +115,7 @@ if st.sidebar.button("📊 Start Training"):
             train_loader, test_loader = create_ocr_dataloaders(train_df, test_df, char_indexer, BATCH_SIZE)
             st.sidebar.success("DataLoaders created successfully.")
             
-            ocr_model.train() # Ensure it's in training mode before passing to train_ocr_model
+            ocr_model.train() 
 
             st.sidebar.write("Training in progress... This may take a while.")
             ocr_model, training_history = train_ocr_model(
@@ -125,21 +125,18 @@ if st.sidebar.button("📊 Start Training"):
                 char_indexer=char_indexer,
                 epochs=NUM_EPOCHS,
                 device=device,
-                progress_callback=update_progress_callback_sidebar # Use the sidebar callback
+                progress_callback=update_progress_callback_sidebar 
             )
             st.sidebar.success("OCR model training finished!")
             update_progress_callback_sidebar(1.0, "Training complete!")
 
             os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
-            save_ocr_model(ocr_model, MODEL_SAVE_PATH) # Save the now trained ocr_model
+            save_ocr_model(ocr_model, MODEL_SAVE_PATH) 
             st.sidebar.success(f"Trained model saved to `{MODEL_SAVE_PATH}`")
-
-            # Training history charts will now be displayed in the main content area (col2)
-            # This block will be executed after training is complete.
 
         except Exception as e:
             st.sidebar.error(f"An error occurred during training: {e}")
-            st.exception(e) # Display full traceback in main section
+            st.exception(e) 
             update_progress_callback_sidebar(0.0, "Training failed!")
 
 # --- Sidebar for Model Loading ---
@@ -156,7 +153,7 @@ if st.sidebar.button("💾 Load Model"):
             st.sidebar.success(f"Model loaded successfully from `{MODEL_SAVE_PATH}`")
         except Exception as e:
             st.sidebar.error(f"Error loading model: {e}")
-            st.exception(e) # Display full traceback in main section
+            st.exception(e) 
     else:
         st.sidebar.warning(f"No model found at `{MODEL_SAVE_PATH}`. Please train a model first or check the path.")
 

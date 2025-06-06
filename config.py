@@ -7,8 +7,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
 
-TRAIN_IMAGES_DIR = os.path.join(DATA_DIR, 'images', 'train')
-TEST_IMAGES_DIR = os.path.join(DATA_DIR, 'images', 'test') # Ensure this is 'test' lowercase if that's your folder name
+TRAIN_IMAGES_DIR = os.path.join(DATA_DIR, 'images')
+TEST_IMAGES_DIR = os.path.join(DATA_DIR, 'images')
 
 TRAIN_CSV_PATH = os.path.join(DATA_DIR, 'train.csv')
 TEST_CSV_PATH = os.path.join(DATA_DIR, 'test.csv')
